@@ -9,10 +9,10 @@ using namespace std;
 const int scr_w = 700;
 const int scr_h = 900;
 
-const int map_w = 20;
-const int map_h = 20;
+const int map_w = 30;
+const int map_h = 30;
 
-const int cell_size = 26;
+const int cell_size = 20;
 const int grid_thickness = 1;
 
 struct Node {
@@ -33,6 +33,7 @@ Node* start_node;
 Node* end_node;
 Node* current_node;
 
+bool is_solved = false;
 
 void init_node_network() {
 	for (int y = 0; y < map_h; y++) {
@@ -115,13 +116,21 @@ void check_node() {
 	float smallest_lg = INFINITY;
 	int id_smallest_lg = -1;
 
+	//cout << "WHILE st_node_pos: " << start_node->pos.x << ", " << start_node->pos.y << endl;
+	//cout << "WHILE node queue list: " << node_queue.size() << endl;
+
 		for (int i = 0; i < node_queue.size(); i++){
 			if (node_queue[i]->local_goal < smallest_lg) {
 				smallest_lg = node_queue[i]->local_goal;
 				id_smallest_lg = i;
+				if (id_smallest_lg == -1) {
+					break;
+				}
 			}
 		}
+
 		current_node = node_queue[id_smallest_lg];
+		current_node->is_visited = true;
 		
 		// check all neighbors of current node
 		for (Node* n_node : current_node->neighbors) {
@@ -143,14 +152,18 @@ void check_node() {
 			}
 			
 			// check if the n_node is end_node
-			if (n_node == end_node) {
-				cout << "End_node has been found" << endl;
-				cout << n_node->pos.x << ", " << n_node->pos.y << endl;
-				// the end of simulation. Go to the start_node;
+			if (n_node == end_node && n_node->pos.x) {
+				//cout << "WHILE: END_NODE HAS BEEN FOUND" << endl;
+				cout << "N_NODE = " << n_node->pos.x << ", " << n_node->pos.y << endl;
+				cout << "END_NODE = " << end_node->pos.x << ", " << end_node->pos.y << endl;
+				is_solved = true;
 			}
 		}
-		current_node->is_visited = true;
 		node_queue.erase(node_queue.begin() + id_smallest_lg);
+		if (is_solved) {
+			is_solved = false;
+			break;
+		}
 	}
 }
 
@@ -173,15 +186,17 @@ void render_nodes() {
 	if (end_node->parent != nullptr) {
 		Node* p = end_node;
 		//cout << "start node = " << start_node->pos.x << ", " << start_node->pos.y << endl;
-		while (p->parent != nullptr && p->parent != start_node) {
-
+		while (p->parent != nullptr) {
+			if (p != end_node && p != start_node) {
+				Vector2 px_p_pos = convert_to_px(p->pos);
+				DrawRectangleV(px_p_pos, cell_sz, DARKPURPLE);
+			}
 			p = p->parent;
-			Vector2 px_p_pos = convert_to_px(p->pos);
-			DrawRectangleV(px_p_pos, cell_sz, DARKPURPLE);
 		}
 	}
-	// show neighbors of the start_node
-	/*Vector2 c_node_pos = convert_to_px(start_node->pos);
+
+	 /*//show neighbors of the start_node
+	Vector2 c_node_pos = convert_to_px(start_node->pos);
 	DrawRectangleV(c_node_pos, cell_sz, GREEN);
 	for (Node* nod : start_node->neighbors) {
 		Vector2 px_node_pos = convert_to_px(nod->pos);
@@ -214,9 +229,9 @@ void change_nodes_pos(){
 			}
 			else {
 				map[int(start_node->pos.y)][int(start_node->pos.x)].color = DARKBLUE;
-				cout << "st pos bef = " << start_node->pos.x << ", " << start_node->pos.y << endl;
+				//cout << "st pos bef = " << start_node->pos.x << ", " << start_node->pos.y << endl;
 				start_node = &map[int(m_cell.y)][int(m_cell.x)];
-				cout << "st pos aft = " << start_node->pos.x << ", " << start_node->pos.y << endl;
+				//cout << "st pos aft = " << start_node->pos.x << ", " << start_node->pos.y << endl;
 				is_start_active = false;
 				start_node->color = YELLOW;
 			}
@@ -240,19 +255,6 @@ void change_nodes_pos(){
 				end_node->color = RED;
 			}
 		}
-		/*cout << " " << endl;
-		cout << "mouse_sell = " << m_cell.x << ", " << m_cell.y << endl;
-		cout << "map(mouse_cell) = " << map[int(m_cell.y)][int(m_cell.x)].pos.x << ", " << map[int(m_cell.y)][int(m_cell.x)].pos.y << endl;
-		cout << " " << endl;
-		cout << "end pos = " << end_node->pos.x << ", " << end_node->pos.y << endl;
-		cout << "is_end_active? = " << is_end_active << endl;
-		cout << "start pos = " << start_node->pos.x << ", " << start_node->pos.y << endl;
-		cout << " " << endl;
-		cout << "mouse_sell = " << m_cell.x << ", " << m_cell.y << endl;
-		cout << "map(mouse_cell) = " << map[int(m_cell.y)][int(m_cell.x)].pos.x << ", " << map[int(m_cell.y)][int(m_cell.x)].pos.y << endl;
-		cout << " " << endl;
-		cout << "start pos = " << start_node->pos.x << ", " << start_node->pos.y << endl;
-		cout << "is_start_active? = " << is_start_active << endl;*/
 	}
 }
 
@@ -270,6 +272,14 @@ int main() {
 	SetTargetFPS(60);
 
 	while (!WindowShouldClose()) {
+		for (int y = 0; y < map_h; y++) {
+			for (int x = 0; x < map_w; x++) {
+				map[y][x].is_visited = false;
+				map[y][x].local_goal = INFINITY;
+				map[y][x].parent = nullptr;
+			}
+		}
+		start_node->local_goal = 0.0f;
 		check_node();
 		change_nodes_pos();
 		render();
