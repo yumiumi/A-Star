@@ -87,54 +87,29 @@ void init_node_network() {
 vector<Node*> node_queue; // priority queue for checking nodes
 
 void check_node() {
-	// start from start_node
-	// put start_node into node_queue
 
-	// then choose unvisited node from noed_queue with smallest local_goal
-	// for each neighbor of this node:
-	// if it is visited - skip it
-	// if no:
-	// mark it as "current" (??)
-	// set a local_goal for current: 
-	// if (loc_goal from start_node(0) + the distance btw start_node and current_node) < current loc_goal 
-	// then set new local_goal
-	// set the previous node as parent
-	// add current node to queue
-	// check if it is the end_node
-	// if no, go to next neighbor
-	// do the same until there are no more neighbors 
-	// then mark start node as visited
-	// remove it from node_queue
-	// check from the neighbors the one with the smallest local_goal num and not visited
-	// go to it and check it's neighbors
-	// do the same as before until the end
+	node_queue.clear();
 
 	node_queue.push_back(start_node);
 
 	while (!node_queue.empty()) {
-		
-	float smallest_lg = INFINITY;
-	int id_smallest_lg = -1;
 
-	//cout << "WHILE st_node_pos: " << start_node->pos.x << ", " << start_node->pos.y << endl;
-	//cout << "WHILE node queue list: " << node_queue.size() << endl;
-
+		int id_smallest_lg = -1;
+		float smallest_lg;
 		for (int i = 0; i < node_queue.size(); i++){
-			if (node_queue[i]->local_goal < smallest_lg) {
+			if (id_smallest_lg == -1 || node_queue[i]->local_goal < smallest_lg) {
 				smallest_lg = node_queue[i]->local_goal;
 				id_smallest_lg = i;
-				if (id_smallest_lg == -1) {
-					break;
-				}
 			}
 		}
-
+		assert(id_smallest_lg > -1);
+		assert(id_smallest_lg < node_queue.size());
 		current_node = node_queue[id_smallest_lg];
 		current_node->is_visited = true;
 		
 		// check all neighbors of current node
 		for (Node* n_node : current_node->neighbors) {
-			if (n_node->is_visited) {
+			if (n_node->is_visited || n_node->is_obstacle) {
 				continue;
 			}
 			float distance = Vector2Distance(n_node->pos, current_node->pos);
@@ -153,9 +128,6 @@ void check_node() {
 			
 			// check if the n_node is end_node
 			if (n_node == end_node && n_node->pos.x) {
-				//cout << "WHILE: END_NODE HAS BEEN FOUND" << endl;
-				cout << "N_NODE = " << n_node->pos.x << ", " << n_node->pos.y << endl;
-				cout << "END_NODE = " << end_node->pos.x << ", " << end_node->pos.y << endl;
 				is_solved = true;
 			}
 		}
@@ -181,6 +153,14 @@ void render_nodes() {
 		for (int x = 0; x < map_w; x++) {
 			Vector2 px_node_pos = convert_to_px(map[y][x].pos);
 			DrawRectangleV(px_node_pos, cell_sz, map[y][x].color);
+			if (map[y][x].is_visited) {
+				if (map[y][x].pos.x != start_node->pos.x || map[y][x].pos.y != start_node->pos.y) {
+					DrawRectangleV(px_node_pos, cell_sz, DARKGREEN);
+				}
+			}
+			if (map[y][x].is_obstacle) {
+				DrawRectangleV(px_node_pos, cell_sz, GRAY);
+			}
 		}
 	}
 	if (end_node->parent != nullptr) {
@@ -194,6 +174,7 @@ void render_nodes() {
 			p = p->parent;
 		}
 	}
+
 
 	 /*//show neighbors of the start_node
 	Vector2 c_node_pos = convert_to_px(start_node->pos);
@@ -229,9 +210,9 @@ void change_nodes_pos(){
 			}
 			else {
 				map[int(start_node->pos.y)][int(start_node->pos.x)].color = DARKBLUE;
-				//cout << "st pos bef = " << start_node->pos.x << ", " << start_node->pos.y << endl;
-				start_node = &map[int(m_cell.y)][int(m_cell.x)];
-				//cout << "st pos aft = " << start_node->pos.x << ", " << start_node->pos.y << endl;
+				if (!map[int(m_cell.y)][int(m_cell.x)].is_obstacle) {
+					start_node = &map[int(m_cell.y)][int(m_cell.x)];
+				}
 				is_start_active = false;
 				start_node->color = YELLOW;
 			}
@@ -250,9 +231,33 @@ void change_nodes_pos(){
 			}
 			else {
 				map[int(end_node->pos.y)][int(end_node->pos.x)].color = DARKBLUE;
-				end_node = &map[int(m_cell.y)][int(m_cell.x)];
+				if (!map[int(m_cell.y)][int(m_cell.x)].is_obstacle) {
+					end_node = &map[int(m_cell.y)][int(m_cell.x)];
+				}
 				is_end_active = false;
 				end_node->color = RED;
+			}
+		}
+	}
+	if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
+
+		Vector2 m_px = GetMousePosition();
+		m_px = { m_px.x - w, m_px.y - h };
+		// Convert mouse position from pixels to cells
+		Vector2 m_cell = { floor(m_px.x / cell_size), floor(m_px.y / cell_size) };
+		if (map[int(m_cell.y)][int(m_cell.x)].is_obstacle) {
+			map[int(m_cell.y)][int(m_cell.x)].is_obstacle = false;
+		}
+	}
+	if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+
+		Vector2 m_px = GetMousePosition();
+		m_px = { m_px.x - w, m_px.y - h };
+		// Convert mouse position from pixels to cells
+		Vector2 m_cell = { floor(m_px.x / cell_size), floor(m_px.y / cell_size) };
+		if (map[int(m_cell.y)][int(m_cell.x)].pos.x != start_node->pos.x || map[int(m_cell.y)][int(m_cell.x)].pos.y != start_node->pos.y) {
+			if (map[int(m_cell.y)][int(m_cell.x)].pos.x != end_node->pos.x || map[int(m_cell.y)][int(m_cell.x)].pos.y != end_node->pos.y) {
+				map[int(m_cell.y)][int(m_cell.x)].is_obstacle = true;
 			}
 		}
 	}
